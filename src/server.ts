@@ -3,6 +3,8 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { createDb } from "./db/client.js";
 import { addLearningItem, addLearningItemInputShape } from "./tools/addLearningItem.js";
 import { searchLearningItems, searchLearningItemsInputShape } from "./tools/searchLearningItems.js";
+import { getDueReviews, getDueReviewsInputShape } from "./tools/getDueReviews.js";
+import { recordReviewResult, recordReviewResultInputShape } from "./tools/recordReviewResult.js";
 
 const db = createDb();
 
@@ -24,6 +26,30 @@ server.registerTool(
       content: [{ type: "text", text: JSON.stringify(item) }],
     };
   },
+);
+
+server.registerTool(
+  "get_due_reviews",
+  {
+    title: "Get Due Reviews",
+    description: "現在復習すべきLearningItemを期限順に取得する",
+    inputSchema: getDueReviewsInputShape,
+  },
+  async (input) => ({
+    content: [{ type: "text", text: JSON.stringify(getDueReviews(db, input)) }],
+  }),
+);
+
+server.registerTool(
+  "record_review_result",
+  {
+    title: "Record Review Result",
+    description: "復習結果を保存し、習熟度と次回復習日を更新する",
+    inputSchema: recordReviewResultInputShape,
+  },
+  async (input) => ({
+    content: [{ type: "text", text: JSON.stringify(recordReviewResult(db, input)) }],
+  }),
 );
 
 server.registerTool(

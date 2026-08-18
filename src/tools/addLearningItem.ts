@@ -19,6 +19,8 @@ export interface LearningItem extends AddLearningItemInput {
   id: string;
   user_id: string;
   mastery: number;
+  last_reviewed_at?: string | null;
+  next_review_at?: string | null;
   created_at: string;
   updated_at: string;
 }
