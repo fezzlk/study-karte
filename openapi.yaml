@@ -6,7 +6,7 @@ info:
     学習項目（LearningItem）の登録・検索・復習期限の取得・復習結果の記録を行う。
   version: "0.1.0"
 servers:
-  - url: https://REPLACE_WITH_CLOUD_RUN_URL
+  - url: https://study-karte-oqn2yn4era-an.a.run.app
 security:
   - ApiKeyAuth: []
 paths:
