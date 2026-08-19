@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: study-karte API
   description: >-
@@ -37,7 +37,7 @@ paths:
           in: query
           schema:
             type: string
-          description: 対象言語で絞り込む（例: zh-CN）
+          description: "対象言語で絞り込む（例: zh-CN）"
         - name: type
           in: query
           schema:
@@ -112,7 +112,7 @@ components:
       properties:
         language:
           type: string
-          description: 対象言語（例: zh-CN, en）
+          description: "対象言語（例: zh-CN, en）"
         type:
           type: string
           enum: [vocabulary, phrase, grammar]
