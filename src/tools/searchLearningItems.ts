@@ -1,6 +1,8 @@
-import type Database from "better-sqlite3";
+import type { Firestore, Query } from "firebase-admin/firestore";
 import { z } from "zod";
 import type { LearningItem } from "./addLearningItem.js";
+import { LEARNING_ITEMS_COLLECTION } from "../db/firestore.js";
+import { LOCAL_USER_ID } from "./addLearningItem.js";
 
 export const searchLearningItemsInputShape = {
   language: z.string().optional().describe("対象言語で絞り込む（例: zh-CN）"),
@@ -12,22 +14,17 @@ const searchLearningItemsInput = z.object(searchLearningItemsInputShape);
 
 export type SearchLearningItemsInput = z.infer<typeof searchLearningItemsInput>;
 
-export function searchLearningItems(db: Database.Database, input: SearchLearningItemsInput): LearningItem[] {
+export async function searchLearningItems(
+  db: Firestore,
+  input: SearchLearningItemsInput,
+): Promise<LearningItem[]> {
   const parsed = searchLearningItemsInput.parse(input);
 
-  const conditions: string[] = [];
-  const params: Record<string, unknown> = { limit: parsed.limit };
-  if (parsed.language) {
-    conditions.push("language = @language");
-    params.language = parsed.language;
-  }
-  if (parsed.type) {
-    conditions.push("type = @type");
-    params.type = parsed.type;
-  }
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+  let query: Query = db.collection(LEARNING_ITEMS_COLLECTION).where("user_id", "==", LOCAL_USER_ID);
 
-  return db
-    .prepare(`SELECT * FROM learning_items ${where} ORDER BY created_at DESC LIMIT @limit`)
-    .all(params) as LearningItem[];
+  if (parsed.language) query = query.where("language", "==", parsed.language);
+  if (parsed.type) query = query.where("type", "==", parsed.type);
+
+  const snapshot = await query.orderBy("created_at", "desc").limit(parsed.limit).get();
+  return snapshot.docs.map((doc) => doc.data() as LearningItem);
 }

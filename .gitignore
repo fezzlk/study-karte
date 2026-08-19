@@ -1,6 +1,6 @@
 node_modules/
 dist/
-data/*.db
-data/*.db-journal
-data/*.db-wal
-data/*.db-shm
+firestore-debug.log
+ui-debug.log
+firebase-debug.log
+.firebase/

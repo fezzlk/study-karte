@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type Database from "better-sqlite3";
+import type { Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import {
   reviewResults,
@@ -7,6 +7,8 @@ import {
   type ReviewResult,
   type ReviewStrategy,
 } from "../review/simpleReviewStrategy.js";
+import { LEARNING_ITEMS_COLLECTION, REVIEW_EVENTS_COLLECTION } from "../db/firestore.js";
+import { LOCAL_USER_ID } from "./addLearningItem.js";
 
 export const recordReviewResultInputShape = {
   learning_item_id: z.string().uuid().describe("復習したLearningItemのID"),
@@ -25,72 +27,53 @@ export interface ReviewEvent {
   user_id: string;
   reviewed_at: string;
   result: ReviewResult;
-  response_time_ms?: number;
-  agent?: string;
-  quiz_type?: string;
+  response_time_ms?: number | null;
+  agent?: string | null;
+  quiz_type?: string | null;
   mastery_before: number;
   mastery_after: number;
   next_review_at: string;
 }
 
-const LOCAL_USER_ID = "local";
-
-export function recordReviewResult(
-  db: Database.Database,
+export async function recordReviewResult(
+  db: Firestore,
   input: RecordReviewResultInput,
   strategy: ReviewStrategy = new SimpleReviewStrategy(),
   reviewedAt: Date = new Date(),
-): ReviewEvent {
+): Promise<ReviewEvent> {
   const parsed = recordReviewResultInput.parse(input);
-  const item = db
-    .prepare("SELECT mastery FROM learning_items WHERE id = ? AND user_id = ?")
-    .get(parsed.learning_item_id, LOCAL_USER_ID) as { mastery: number } | undefined;
-  if (!item) {
-    throw new Error(`LearningItem not found: ${parsed.learning_item_id}`);
-  }
+  const itemRef = db.collection(LEARNING_ITEMS_COLLECTION).doc(parsed.learning_item_id);
 
-  const schedule = strategy.schedule(item.mastery, parsed.result, reviewedAt);
-  const event: ReviewEvent = {
-    id: randomUUID(),
-    learning_item_id: parsed.learning_item_id,
-    user_id: LOCAL_USER_ID,
-    reviewed_at: reviewedAt.toISOString(),
-    result: parsed.result,
-    response_time_ms: parsed.response_time_ms,
-    agent: parsed.agent,
-    quiz_type: parsed.quiz_type,
-    mastery_before: item.mastery,
-    mastery_after: schedule.mastery,
-    next_review_at: schedule.nextReviewAt,
-  };
+  return db.runTransaction(async (tx) => {
+    const itemSnap = await tx.get(itemRef);
+    const item = itemSnap.data() as { mastery: number; user_id: string } | undefined;
+    if (!item || item.user_id !== LOCAL_USER_ID) {
+      throw new Error(`LearningItem not found: ${parsed.learning_item_id}`);
+    }
 
-  db.transaction(() => {
-    db.prepare(
-      `INSERT INTO review_events
-        (id, learning_item_id, user_id, reviewed_at, result, response_time_ms, agent,
-         quiz_type, mastery_before, mastery_after, next_review_at)
-       VALUES
-        (@id, @learning_item_id, @user_id, @reviewed_at, @result, @response_time_ms, @agent,
-         @quiz_type, @mastery_before, @mastery_after, @next_review_at)`,
-    ).run({
-      ...event,
-      response_time_ms: event.response_time_ms ?? null,
-      agent: event.agent ?? null,
-      quiz_type: event.quiz_type ?? null,
-    });
-    db.prepare(
-      `UPDATE learning_items
-       SET mastery = @mastery, last_reviewed_at = @reviewed_at,
-           next_review_at = @next_review_at, updated_at = @reviewed_at
-       WHERE id = @learning_item_id AND user_id = @user_id`,
-    ).run({
+    const schedule = strategy.schedule(item.mastery, parsed.result, reviewedAt);
+    const event: ReviewEvent = {
+      id: randomUUID(),
+      learning_item_id: parsed.learning_item_id,
+      user_id: LOCAL_USER_ID,
+      reviewed_at: reviewedAt.toISOString(),
+      result: parsed.result,
+      response_time_ms: parsed.response_time_ms ?? null,
+      agent: parsed.agent ?? null,
+      quiz_type: parsed.quiz_type ?? null,
+      mastery_before: item.mastery,
+      mastery_after: schedule.mastery,
+      next_review_at: schedule.nextReviewAt,
+    };
+
+    tx.set(db.collection(REVIEW_EVENTS_COLLECTION).doc(event.id), event);
+    tx.update(itemRef, {
       mastery: event.mastery_after,
-      reviewed_at: event.reviewed_at,
+      last_reviewed_at: event.reviewed_at,
       next_review_at: event.next_review_at,
-      learning_item_id: event.learning_item_id,
-      user_id: event.user_id,
+      updated_at: event.reviewed_at,
     });
-  })();
 
-  return event;
+    return event;
+  });
 }

@@ -1,12 +1,12 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createDb } from "./db/client.js";
+import { getDb } from "./db/firestore.js";
 import { addLearningItem, addLearningItemInputShape } from "./tools/addLearningItem.js";
 import { searchLearningItems, searchLearningItemsInputShape } from "./tools/searchLearningItems.js";
 import { getDueReviews, getDueReviewsInputShape } from "./tools/getDueReviews.js";
 import { recordReviewResult, recordReviewResultInputShape } from "./tools/recordReviewResult.js";
 
-const db = createDb();
+const db = getDb();
 
 const server = new McpServer({
   name: "study-karte",
@@ -21,7 +21,7 @@ server.registerTool(
     inputSchema: addLearningItemInputShape,
   },
   async (input) => {
-    const item = addLearningItem(db, input);
+    const item = await addLearningItem(db, input);
     return {
       content: [{ type: "text", text: JSON.stringify(item) }],
     };
@@ -36,7 +36,7 @@ server.registerTool(
     inputSchema: getDueReviewsInputShape,
   },
   async (input) => ({
-    content: [{ type: "text", text: JSON.stringify(getDueReviews(db, input)) }],
+    content: [{ type: "text", text: JSON.stringify(await getDueReviews(db, input)) }],
   }),
 );
 
@@ -48,7 +48,7 @@ server.registerTool(
     inputSchema: recordReviewResultInputShape,
   },
   async (input) => ({
-    content: [{ type: "text", text: JSON.stringify(recordReviewResult(db, input)) }],
+    content: [{ type: "text", text: JSON.stringify(await recordReviewResult(db, input)) }],
   }),
 );
 
@@ -60,7 +60,7 @@ server.registerTool(
     inputSchema: searchLearningItemsInputShape,
   },
   async (input) => {
-    const items = searchLearningItems(db, input);
+    const items = await searchLearningItems(db, input);
     return {
       content: [{ type: "text", text: JSON.stringify(items) }],
     };

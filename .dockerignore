@@ -1,0 +1,8 @@
+node_modules
+dist
+tests
+*.md
+docs
+.git
+firestore-debug.log
+ui-debug.log

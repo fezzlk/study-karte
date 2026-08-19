@@ -1,0 +1,197 @@
+openapi: 3.1.0
+info:
+  title: study-karte API
+  description: >-
+    AIエージェント連携型 語学学習プラットフォーム study-karte のREST API。
+    学習項目（LearningItem）の登録・検索・復習期限の取得・復習結果の記録を行う。
+  version: "0.1.0"
+servers:
+  - url: https://REPLACE_WITH_CLOUD_RUN_URL
+security:
+  - ApiKeyAuth: []
+paths:
+  /learning-items:
+    post:
+      operationId: addLearningItem
+      summary: 新しく覚えたい単語・表現・文法を登録する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddLearningItemInput"
+      responses:
+        "201":
+          description: 登録済みのLearningItem
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LearningItem"
+        "400":
+          description: 入力エラー
+    get:
+      operationId: searchLearningItems
+      summary: 登録済みのLearningItemを言語・種別で絞り込んで一覧取得する
+      parameters:
+        - name: language
+          in: query
+          schema:
+            type: string
+          description: 対象言語で絞り込む（例: zh-CN）
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [vocabulary, phrase, grammar]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        "200":
+          description: LearningItemの一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LearningItem"
+  /due-reviews:
+    get:
+      operationId: getDueReviews
+      summary: 現在復習すべきLearningItemを期限順に取得する
+      parameters:
+        - name: language
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 復習対象のLearningItem一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LearningItem"
+  /review-results:
+    post:
+      operationId: recordReviewResult
+      summary: 復習結果を保存し、習熟度と次回復習日を更新する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecordReviewResultInput"
+      responses:
+        "201":
+          description: 記録されたReviewEvent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReviewEvent"
+        "404":
+          description: 対象のLearningItemが見つからない
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+  schemas:
+    AddLearningItemInput:
+      type: object
+      required: [language, type, surface, meaning]
+      properties:
+        language:
+          type: string
+          description: 対象言語（例: zh-CN, en）
+        type:
+          type: string
+          enum: [vocabulary, phrase, grammar]
+        surface:
+          type: string
+          description: 表記
+        reading:
+          type: string
+          description: 発音・読み（任意）
+        meaning:
+          type: string
+          description: ユーザー母語での意味
+        note:
+          type: string
+          description: 補足（任意）
+    LearningItem:
+      type: object
+      properties:
+        id:
+          type: string
+        user_id:
+          type: string
+        language:
+          type: string
+        type:
+          type: string
+        surface:
+          type: string
+        reading:
+          type: string
+          nullable: true
+        meaning:
+          type: string
+        note:
+          type: string
+          nullable: true
+        mastery:
+          type: integer
+        last_reviewed_at:
+          type: string
+          nullable: true
+        next_review_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    RecordReviewResultInput:
+      type: object
+      required: [learning_item_id, result]
+      properties:
+        learning_item_id:
+          type: string
+        result:
+          type: string
+          enum: [correct, incorrect, partial, self_known]
+        response_time_ms:
+          type: integer
+        agent:
+          type: string
+        quiz_type:
+          type: string
+    ReviewEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        learning_item_id:
+          type: string
+        user_id:
+          type: string
+        reviewed_at:
+          type: string
+        result:
+          type: string
+        mastery_before:
+          type: integer
+        mastery_after:
+          type: integer
+        next_review_at:
+          type: string

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import type Database from "better-sqlite3";
+import type { Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
+import { LEARNING_ITEMS_COLLECTION } from "../db/firestore.js";
 
 export const addLearningItemInputShape = {
   language: z.string().min(1).describe("対象言語（例: zh-CN, en）"),
@@ -25,29 +26,23 @@ export interface LearningItem extends AddLearningItemInput {
   updated_at: string;
 }
 
-const LOCAL_USER_ID = "local";
+export const LOCAL_USER_ID = "local";
 
-export function addLearningItem(db: Database.Database, input: AddLearningItemInput): LearningItem {
+export async function addLearningItem(db: Firestore, input: AddLearningItemInput): Promise<LearningItem> {
   const parsed = addLearningItemInput.parse(input);
   const now = new Date().toISOString();
   const item: LearningItem = {
     id: randomUUID(),
     user_id: LOCAL_USER_ID,
     mastery: 0,
+    last_reviewed_at: null,
+    next_review_at: null,
     created_at: now,
     updated_at: now,
     ...parsed,
   };
 
-  db.prepare(
-    `INSERT INTO learning_items
-      (id, user_id, language, type, surface, reading, meaning, note, mastery, created_at, updated_at)
-     VALUES (@id, @user_id, @language, @type, @surface, @reading, @meaning, @note, @mastery, @created_at, @updated_at)`,
-  ).run({
-    ...item,
-    reading: item.reading ?? null,
-    note: item.note ?? null,
-  });
+  await db.collection(LEARNING_ITEMS_COLLECTION).doc(item.id).set(item);
 
   return item;
 }
