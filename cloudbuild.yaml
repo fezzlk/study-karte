@@ -28,6 +28,7 @@ steps:
       - --platform=managed
       - --memory=512Mi
       - --cpu=1
+      - --no-cpu-boost
       - --min-instances=0
       - --max-instances=10
       - --allow-unauthenticated

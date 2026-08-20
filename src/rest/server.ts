@@ -18,6 +18,15 @@ function queryParams(req: Request): Record<string, unknown> {
 const db = getDb();
 const app = express();
 app.use(express.json());
+app.use(
+  express.static("public", {
+    extensions: ["html"],
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Referrer-Policy", "same-origin");
+    },
+  }),
+);
 
 function requireApiKey(req: Request, res: Response, next: NextFunction): void {
   const expected = process.env.STUDY_KARTE_API_KEY;

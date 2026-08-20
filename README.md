@@ -8,9 +8,21 @@ AIエージェント連携型 語学学習プラットフォーム。ChatGPT・G
 
 詳細な設計思想・ドメインモデル・API設計・ロードマップは [docs/proposal-v0.2.txt](docs/proposal-v0.2.txt) を参照。
 
+## 登録した学習項目を見る
+
+RESTサーバーを起動して `http://localhost:8081` を開くと、ChatGPTから登録した単語・フレーズ・文法を一覧できます。
+
+```sh
+STUDY_KARTE_API_KEY=your-api-key npm run start:rest
+```
+
+初回表示時に同じAPIキーを入力してください。キーは利用中のブラウザの `localStorage` に保存され、HTMLには埋め込まれません。言語・項目種別による絞り込みに対応しています。
+
+ChatGPT上では「Study Karteに登録した単語を一覧で見せて」と依頼することでも確認できます。
+
 ## 現在のステータス
 
-企画・設計段階。技術スタック・MVPの詳細要件は検討中（Phase 0: PoC）。
+ChatGPT連携、学習項目の登録・一覧、簡易復習APIを備えたPoCです。学習カルテと初診ヒアリングは設計段階です。
 
 ## 参照
 

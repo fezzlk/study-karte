@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="ChatGPTから登録した学習項目を確認するStudy Karte" />
+    <title>Study Karte</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">STUDY KARTE</p>
+        <h1>学習項目</h1>
+        <p class="subtitle">ChatGPTで出会った知識を、ここで育てる。</p>
+      </div>
+      <button id="settings-button" class="text-button" type="button">接続設定</button>
+    </header>
+
+    <main>
+      <section id="connection-panel" class="panel connection-panel" aria-labelledby="connection-title">
+        <div>
+          <h2 id="connection-title">Study Karteに接続</h2>
+          <p>接続時に設定したAPIキーを入力してください。この端末のブラウザ内だけに保存されます。</p>
+        </div>
+        <form id="api-key-form" class="key-form">
+          <label for="api-key">APIキー</label>
+          <div class="key-row">
+            <input id="api-key" name="api-key" type="password" autocomplete="current-password" required />
+            <button class="primary-button" type="submit">接続する</button>
+          </div>
+        </form>
+      </section>
+
+      <section id="items-panel" class="items-panel" hidden>
+        <div class="toolbar panel">
+          <label>
+            <span>言語</span>
+            <select id="language-filter">
+              <option value="">すべて</option>
+            </select>
+          </label>
+          <label>
+            <span>種類</span>
+            <select id="type-filter">
+              <option value="">すべて</option>
+              <option value="vocabulary">単語</option>
+              <option value="phrase">フレーズ</option>
+              <option value="grammar">文法</option>
+            </select>
+          </label>
+          <button id="refresh-button" class="secondary-button" type="button">更新</button>
+        </div>
+
+        <div class="result-heading">
+          <p id="result-count" aria-live="polite"></p>
+          <p class="hint">最近登録した順</p>
+        </div>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+        <div id="item-list" class="item-list"></div>
+      </section>
+    </main>
+
+    <template id="item-template">
+      <article class="item-card">
+        <div class="item-topline">
+          <span class="type-badge"></span>
+          <time class="created-at"></time>
+        </div>
+        <h2 class="surface"></h2>
+        <p class="reading"></p>
+        <p class="meaning"></p>
+        <p class="note"></p>
+        <div class="mastery-row">
+          <span>習熟度</span>
+          <div class="mastery-track"><span class="mastery-bar"></span></div>
+          <strong class="mastery-value"></strong>
+        </div>
+      </article>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
