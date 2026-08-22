@@ -130,7 +130,23 @@ button:disabled { cursor: wait; opacity: 0.55; }
 .item-topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .type-badge { border-radius: 999px; padding: 4px 10px; color: #286652; background: #e5f1ea; font-size: 0.74rem; font-weight: 800; }
 .created-at { color: #82918c; font-size: 0.76rem; }
-.surface { margin: 14px 0 2px; font-size: 1.5rem; }
+.surface-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+.surface { min-width: 0; margin: 0 0 2px; overflow-wrap: anywhere; font-size: 1.5rem; }
+.speak-button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+  min-height: 40px;
+  border: 1px solid #c8d9d2;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #285f50;
+  background: #f7fbf9;
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+.speak-button.speaking { border-color: #dfa04d; background: #fff7e8; }
 .reading { margin: 0 0 12px; color: #ad6b2c; font-size: 0.9rem; }
 .meaning { margin: 12px 0 0; line-height: 1.6; }
 .note { margin: 12px 0 0; padding: 12px; border-radius: 10px; color: #566a63; background: #f6f7f2; font-size: 0.9rem; line-height: 1.6; }

@@ -10,6 +10,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
 const typeLabels = { vocabulary: "単語", phrase: "フレーズ", grammar: "文法" };
+const speechLanguageAliases = {
+  english: "en-US", 英語: "en-US", en: "en-US",
+  japanese: "ja-JP", 日本語: "ja-JP", ja: "ja-JP",
+  chinese: "zh-CN", 中国語: "zh-CN", zh: "zh-CN",
+  korean: "ko-KR", 韓国語: "ko-KR", ko: "ko-KR",
+  spanish: "es-ES", スペイン語: "es-ES", es: "es-ES",
+  french: "fr-FR", フランス語: "fr-FR", fr: "fr-FR",
+  german: "de-DE", ドイツ語: "de-DE", de: "de-DE",
+  italian: "it-IT", イタリア語: "it-IT", it: "it-IT",
+  portuguese: "pt-BR", ポルトガル語: "pt-BR", pt: "pt-BR",
+};
 const loginPanel = document.querySelector("#login-panel");
 const loginStatus = document.querySelector("#login-status");
 const googleSignInButton = document.querySelector("#google-sign-in-button");
@@ -85,6 +96,29 @@ function formatDate(value) {
   );
 }
 
+function speechLanguage(language) {
+  const normalized = String(language || "").trim().toLowerCase();
+  return speechLanguageAliases[normalized] || (normalized.includes("-") ? normalized : undefined);
+}
+
+function speak(text, language, button) {
+  if (!("speechSynthesis" in window) || !("SpeechSynthesisUtterance" in window)) {
+    button.disabled = true;
+    button.title = "このブラウザは音声再生に対応していません";
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  const lang = speechLanguage(language);
+  if (lang) utterance.lang = lang;
+  utterance.rate = 0.88;
+  button.classList.add("speaking");
+  utterance.onend = () => button.classList.remove("speaking");
+  utterance.onerror = () => button.classList.remove("speaking");
+  window.speechSynthesis.speak(utterance);
+}
+
 function renderItems(items) {
   itemList.replaceChildren();
   resultCount.textContent = `${items.length}件`;
@@ -99,6 +133,9 @@ function renderItems(items) {
     fragment.querySelector(".type-badge").textContent = typeLabels[item.type] ?? item.type;
     fragment.querySelector(".created-at").textContent = formatDate(item.created_at);
     fragment.querySelector(".surface").textContent = item.surface;
+    const speakButton = fragment.querySelector(".speak-button");
+    speakButton.setAttribute("aria-label", `${item.surface}の発音を再生`);
+    speakButton.addEventListener("click", () => speak(item.surface, item.language, speakButton));
     const reading = fragment.querySelector(".reading");
     reading.textContent = item.reading ?? "";
     reading.hidden = !item.reading;
