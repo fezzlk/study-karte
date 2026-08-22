@@ -14,22 +14,25 @@
         <h1>学習項目</h1>
         <p class="subtitle">ChatGPTで出会った知識を、ここで育てる。</p>
       </div>
-      <button id="settings-button" class="text-button" type="button">接続設定</button>
+      <div id="user-menu" class="user-menu" hidden>
+        <img id="user-photo" alt="" hidden />
+        <span id="user-name"></span>
+        <button id="sign-out-button" class="text-button" type="button">ログアウト</button>
+      </div>
     </header>
 
     <main>
-      <section id="connection-panel" class="panel connection-panel" aria-labelledby="connection-title">
+      <section id="login-panel" class="panel login-panel" aria-labelledby="login-title">
         <div>
-          <h2 id="connection-title">Study Karteに接続</h2>
-          <p>接続時に設定したAPIキーを入力してください。この端末のブラウザ内だけに保存されます。</p>
+          <p class="eyebrow">YOUR LEARNING, IN ONE PLACE</p>
+          <h2 id="login-title">学びの続きを始めよう</h2>
+          <p>Googleでログインすると、ChatGPTから登録した学習項目を安全に確認できます。</p>
         </div>
-        <form id="api-key-form" class="key-form">
-          <label for="api-key">APIキー</label>
-          <div class="key-row">
-            <input id="api-key" name="api-key" type="password" autocomplete="current-password" required />
-            <button class="primary-button" type="submit">接続する</button>
-          </div>
-        </form>
+        <button id="google-sign-in-button" class="google-button" type="button">
+          <span class="google-mark" aria-hidden="true">G</span>
+          Googleで続ける
+        </button>
+        <p id="login-status" class="login-status" role="status" aria-live="polite"></p>
       </section>
 
       <section id="items-panel" class="items-panel" hidden>
@@ -51,6 +54,16 @@
           </label>
           <button id="refresh-button" class="secondary-button" type="button">更新</button>
         </div>
+
+        <details class="import-panel panel">
+          <summary>以前のデータをインポート</summary>
+          <div class="import-content">
+            <p>Study Karteから書き出したJSONバックアップを選択してください。</p>
+            <input id="import-file" type="file" accept="application/json,.json" />
+            <p id="import-summary" class="import-summary" role="status" aria-live="polite"></p>
+            <button id="import-button" class="primary-button" type="button" disabled>インポートする</button>
+          </div>
+        </details>
 
         <div class="result-heading">
           <p id="result-count" aria-live="polite"></p>

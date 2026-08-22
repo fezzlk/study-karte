@@ -9,7 +9,27 @@ servers:
   - url: https://study-karte-oqn2yn4era-an.a.run.app
 security:
   - ApiKeyAuth: []
+  - FirebaseAuth: []
 paths:
+  /imports/legacy:
+    post:
+      operationId: importLegacyData
+      summary: Googleログイン中のユーザーへ旧データをインポートする
+      security:
+        - FirebaseAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyImportBundle"
+      responses:
+        "200":
+          description: インポート結果
+        "400":
+          description: ファイル形式または移行トークンが不正
+        "409":
+          description: 別のユーザーがすでに引き取り済み
   /learning-items:
     post:
       operationId: addLearningItem
@@ -105,6 +125,12 @@ components:
       type: apiKey
       in: header
       name: x-api-key
+      description: ChatGPT連携の移行期間中だけ使用するサーバー間認証
+    FirebaseAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Firebase ID token
+      description: Webアプリ利用者の認証
   schemas:
     AddLearningItemInput:
       type: object
@@ -191,3 +217,25 @@ components:
           type: integer
         next_review_at:
           type: string
+    LegacyImportBundle:
+      type: object
+      required: [format, version, exported_at, claim_token, learning_items, review_events]
+      properties:
+        format:
+          type: string
+          const: study-karte-legacy-export
+        version:
+          type: integer
+          const: 1
+        exported_at:
+          type: string
+        claim_token:
+          type: string
+        learning_items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LearningItem"
+        review_events:
+          type: array
+          items:
+            $ref: "#/components/schemas/ReviewEvent"

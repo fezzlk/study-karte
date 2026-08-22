@@ -5,6 +5,7 @@ import { addLearningItem, addLearningItemInputShape } from "./tools/addLearningI
 import { searchLearningItems, searchLearningItemsInputShape } from "./tools/searchLearningItems.js";
 import { getDueReviews, getDueReviewsInputShape } from "./tools/getDueReviews.js";
 import { recordReviewResult, recordReviewResultInputShape } from "./tools/recordReviewResult.js";
+import { resolveLegacyApiKeyUserId } from "./auth/users.js";
 
 const db = getDb();
 
@@ -21,7 +22,7 @@ server.registerTool(
     inputSchema: addLearningItemInputShape,
   },
   async (input) => {
-    const item = await addLearningItem(db, input);
+    const item = await addLearningItem(db, await resolveLegacyApiKeyUserId(db), input);
     return {
       content: [{ type: "text", text: JSON.stringify(item) }],
     };
@@ -36,7 +37,7 @@ server.registerTool(
     inputSchema: getDueReviewsInputShape,
   },
   async (input) => ({
-    content: [{ type: "text", text: JSON.stringify(await getDueReviews(db, input)) }],
+    content: [{ type: "text", text: JSON.stringify(await getDueReviews(db, await resolveLegacyApiKeyUserId(db), input)) }],
   }),
 );
 
@@ -48,7 +49,7 @@ server.registerTool(
     inputSchema: recordReviewResultInputShape,
   },
   async (input) => ({
-    content: [{ type: "text", text: JSON.stringify(await recordReviewResult(db, input)) }],
+    content: [{ type: "text", text: JSON.stringify(await recordReviewResult(db, await resolveLegacyApiKeyUserId(db), input)) }],
   }),
 );
 
@@ -60,7 +61,7 @@ server.registerTool(
     inputSchema: searchLearningItemsInputShape,
   },
   async (input) => {
-    const items = await searchLearningItems(db, input);
+    const items = await searchLearningItems(db, await resolveLegacyApiKeyUserId(db), input);
     return {
       content: [{ type: "text", text: JSON.stringify(items) }],
     };

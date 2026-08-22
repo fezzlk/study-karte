@@ -26,14 +26,16 @@ export interface LearningItem extends AddLearningItemInput {
   updated_at: string;
 }
 
-export const LOCAL_USER_ID = "local";
-
-export async function addLearningItem(db: Firestore, input: AddLearningItemInput): Promise<LearningItem> {
+export async function addLearningItem(
+  db: Firestore,
+  userId: string,
+  input: AddLearningItemInput,
+): Promise<LearningItem> {
   const parsed = addLearningItemInput.parse(input);
   const now = new Date().toISOString();
   const item: LearningItem = {
     id: randomUUID(),
-    user_id: LOCAL_USER_ID,
+    user_id: userId,
     mastery: 0,
     last_reviewed_at: null,
     next_review_at: null,

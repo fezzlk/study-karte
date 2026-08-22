@@ -1,7 +1,6 @@
 import type { Firestore, Query } from "firebase-admin/firestore";
 import { z } from "zod";
 import type { LearningItem } from "./addLearningItem.js";
-import { LOCAL_USER_ID } from "./addLearningItem.js";
 import { LEARNING_ITEMS_COLLECTION } from "../db/firestore.js";
 
 export const getDueReviewsInputShape = {
@@ -18,11 +17,12 @@ function withLanguage(query: Query, language: string | undefined): Query {
 
 export async function getDueReviews(
   db: Firestore,
+  userId: string,
   input: GetDueReviewsInput,
   now: Date = new Date(),
 ): Promise<LearningItem[]> {
   const parsed = getDueReviewsInput.parse(input);
-  const collection = db.collection(LEARNING_ITEMS_COLLECTION).where("user_id", "==", LOCAL_USER_ID);
+  const collection = db.collection(LEARNING_ITEMS_COLLECTION).where("user_id", "==", userId);
 
   // Firestore can't express "next_review_at IS NULL OR next_review_at <= now" in one query
   // (mixing equality-to-null with a range filter on the same field), so run two queries and merge.

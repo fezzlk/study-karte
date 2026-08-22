@@ -1,34 +1,57 @@
-const API_KEY_STORAGE = "study-karte-api-key";
-const typeLabels = { vocabulary: "単語", phrase: "フレーズ", grammar: "文法" };
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
+import {
+  GoogleAuthProvider,
+  getAuth,
+  getRedirectResult,
+  onAuthStateChanged,
+  signInWithPopup,
+  signInWithRedirect,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
-const connectionPanel = document.querySelector("#connection-panel");
+const typeLabels = { vocabulary: "単語", phrase: "フレーズ", grammar: "文法" };
+const loginPanel = document.querySelector("#login-panel");
+const loginStatus = document.querySelector("#login-status");
+const googleSignInButton = document.querySelector("#google-sign-in-button");
+const userMenu = document.querySelector("#user-menu");
+const userPhoto = document.querySelector("#user-photo");
+const userName = document.querySelector("#user-name");
+const signOutButton = document.querySelector("#sign-out-button");
 const itemsPanel = document.querySelector("#items-panel");
-const apiKeyForm = document.querySelector("#api-key-form");
-const apiKeyInput = document.querySelector("#api-key");
-const settingsButton = document.querySelector("#settings-button");
 const languageFilter = document.querySelector("#language-filter");
 const typeFilter = document.querySelector("#type-filter");
 const refreshButton = document.querySelector("#refresh-button");
+const importFile = document.querySelector("#import-file");
+const importSummary = document.querySelector("#import-summary");
+const importButton = document.querySelector("#import-button");
 const resultCount = document.querySelector("#result-count");
 const status = document.querySelector("#status");
 const itemList = document.querySelector("#item-list");
 const itemTemplate = document.querySelector("#item-template");
 
-let apiKey = localStorage.getItem(API_KEY_STORAGE) ?? "";
+let auth;
+let currentUser;
 let knownLanguages = new Set();
+let selectedImportBundle;
 
-function showConnection() {
-  connectionPanel.hidden = false;
+function showLogin(message = "") {
+  loginPanel.hidden = false;
   itemsPanel.hidden = true;
-  settingsButton.textContent = "一覧に戻る";
-  apiKeyInput.value = apiKey;
-  apiKeyInput.focus();
+  userMenu.hidden = true;
+  loginStatus.textContent = message;
 }
 
-function showItems() {
-  connectionPanel.hidden = true;
+function showItems(user) {
+  loginPanel.hidden = true;
   itemsPanel.hidden = false;
-  settingsButton.textContent = "接続設定";
+  userMenu.hidden = false;
+  userName.textContent = user.displayName || user.email || "ログイン中";
+  if (user.photoURL) {
+    userPhoto.src = user.photoURL;
+    userPhoto.hidden = false;
+  } else {
+    userPhoto.hidden = true;
+  }
 }
 
 function setStatus(message, kind = "") {
@@ -36,13 +59,20 @@ function setStatus(message, kind = "") {
   status.className = `status ${kind}`.trim();
 }
 
+async function apiFetch(path, options = {}) {
+  if (!currentUser) throw new Error("not_authenticated");
+  const token = await currentUser.getIdToken();
+  return fetch(path, {
+    ...options,
+    headers: { ...options.headers, authorization: `Bearer ${token}` },
+  });
+}
+
 function updateLanguageOptions(items) {
   for (const item of items) knownLanguages.add(item.language);
   const selected = languageFilter.value;
   languageFilter.replaceChildren(new Option("すべて", ""));
-  for (const language of [...knownLanguages].sort()) {
-    languageFilter.add(new Option(language, language));
-  }
+  for (const language of [...knownLanguages].sort()) languageFilter.add(new Option(language, language));
   languageFilter.value = selected;
 }
 
@@ -56,7 +86,6 @@ function formatDate(value) {
 function renderItems(items) {
   itemList.replaceChildren();
   resultCount.textContent = `${items.length}件`;
-
   if (items.length === 0) {
     setStatus("該当する学習項目はまだありません。", "empty");
     return;
@@ -68,16 +97,13 @@ function renderItems(items) {
     fragment.querySelector(".type-badge").textContent = typeLabels[item.type] ?? item.type;
     fragment.querySelector(".created-at").textContent = formatDate(item.created_at);
     fragment.querySelector(".surface").textContent = item.surface;
-
     const reading = fragment.querySelector(".reading");
     reading.textContent = item.reading ?? "";
     reading.hidden = !item.reading;
-
     fragment.querySelector(".meaning").textContent = item.meaning;
     const note = fragment.querySelector(".note");
     note.textContent = item.note ?? "";
     note.hidden = !item.note;
-
     const mastery = Math.max(0, Math.min(100, Number(item.mastery) || 0));
     fragment.querySelector(".mastery-bar").style.width = `${mastery}%`;
     fragment.querySelector(".mastery-value").textContent = `${mastery}%`;
@@ -86,12 +112,7 @@ function renderItems(items) {
 }
 
 async function loadItems({ discoverLanguages = false } = {}) {
-  if (!apiKey) {
-    showConnection();
-    return;
-  }
-
-  showItems();
+  if (!currentUser) return;
   refreshButton.disabled = true;
   resultCount.textContent = "";
   itemList.replaceChildren();
@@ -102,40 +123,134 @@ async function loadItems({ discoverLanguages = false } = {}) {
   if (typeFilter.value) params.set("type", typeFilter.value);
 
   try {
-    const response = await fetch(`/learning-items?${params}`, { headers: { "x-api-key": apiKey } });
-    if (response.status === 401) {
-      setStatus("APIキーを確認してください。", "error");
-      showConnection();
-      return;
-    }
+    const response = await apiFetch(`/learning-items?${params}`);
+    if (response.status === 401) throw new Error("unauthorized");
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
     const items = await response.json();
     updateLanguageOptions(items);
     renderItems(items);
   } catch (error) {
     console.error(error);
-    setStatus("学習項目を取得できませんでした。通信状態を確認して再度お試しください。", "error");
+    setStatus("学習項目を取得できませんでした。再ログインしてお試しください。", "error");
   } finally {
     refreshButton.disabled = false;
   }
 }
 
-apiKeyForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  apiKey = apiKeyInput.value.trim();
-  localStorage.setItem(API_KEY_STORAGE, apiKey);
-  loadItems({ discoverLanguages: true });
+async function establishSession(user) {
+  currentUser = user;
+  showItems(user);
+  const response = await apiFetch("/auth/session");
+  if (!response.ok) throw new Error(`Session failed: ${response.status}`);
+  await loadItems({ discoverLanguages: true });
+}
+
+async function initializeAuthentication() {
+  try {
+    const response = await fetch("/auth/config");
+    if (!response.ok) throw new Error("Googleログインは現在準備中です。");
+    const config = await response.json();
+    auth = getAuth(initializeApp(config));
+    await getRedirectResult(auth);
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        currentUser = undefined;
+        showLogin();
+        return;
+      }
+      try {
+        await establishSession(user);
+      } catch (error) {
+        console.error(error);
+        showLogin("ログイン情報を確認できませんでした。もう一度お試しください。");
+      }
+    });
+  } catch (error) {
+    console.error(error);
+    showLogin(error.message || "Googleログインを初期化できませんでした。");
+    googleSignInButton.disabled = true;
+  }
+}
+
+googleSignInButton.addEventListener("click", async () => {
+  googleSignInButton.disabled = true;
+  loginStatus.textContent = "Googleを開いています…";
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: "select_account" });
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error) {
+    if (error.code === "auth/popup-blocked" || error.code === "auth/cancelled-popup-request") {
+      await signInWithRedirect(auth, provider);
+      return;
+    }
+    console.error(error);
+    loginStatus.textContent = "ログインを完了できませんでした。もう一度お試しください。";
+  } finally {
+    googleSignInButton.disabled = false;
+  }
 });
 
-settingsButton.addEventListener("click", () => {
-  if (connectionPanel.hidden) showConnection();
-  else loadItems();
-});
-
+signOutButton.addEventListener("click", () => signOut(auth));
 languageFilter.addEventListener("change", () => loadItems());
 typeFilter.addEventListener("change", () => loadItems());
 refreshButton.addEventListener("click", () => loadItems());
 
-if (apiKey) loadItems({ discoverLanguages: true });
-else showConnection();
+importFile.addEventListener("change", async () => {
+  selectedImportBundle = undefined;
+  importButton.disabled = true;
+  const file = importFile.files?.[0];
+  if (!file) {
+    importSummary.textContent = "";
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    importSummary.textContent = "ファイルが大きすぎます（上限2MB）。";
+    return;
+  }
+
+  try {
+    const bundle = JSON.parse(await file.text());
+    if (
+      bundle.format !== "study-karte-legacy-export" ||
+      bundle.version !== 1 ||
+      !Array.isArray(bundle.learning_items) ||
+      !Array.isArray(bundle.review_events) ||
+      typeof bundle.claim_token !== "string"
+    ) {
+      throw new Error("invalid_format");
+    }
+    selectedImportBundle = bundle;
+    importSummary.textContent = `学習項目 ${bundle.learning_items.length}件、復習履歴 ${bundle.review_events.length}件をインポートします。`;
+    importButton.disabled = false;
+  } catch (error) {
+    console.error(error);
+    importSummary.textContent = "Study KarteのバックアップJSONではありません。";
+  }
+});
+
+importButton.addEventListener("click", async () => {
+  if (!selectedImportBundle) return;
+  importButton.disabled = true;
+  importSummary.textContent = "インポートしています…";
+  try {
+    const response = await apiFetch("/imports/legacy", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(selectedImportBundle),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    importSummary.textContent = result.already_imported
+      ? "このバックアップはすでにインポート済みです。"
+      : `学習項目 ${result.learning_items}件をインポートしました。`;
+    await loadItems({ discoverLanguages: true });
+  } catch (error) {
+    console.error(error);
+    importSummary.textContent = "インポートできませんでした。ファイルとログインアカウントを確認してください。";
+    importButton.disabled = false;
+  }
+});
+
+showLogin("ログインを準備しています…");
+initializeAuthentication();

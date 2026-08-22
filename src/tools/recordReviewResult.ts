@@ -8,7 +8,6 @@ import {
   type ReviewStrategy,
 } from "../review/simpleReviewStrategy.js";
 import { LEARNING_ITEMS_COLLECTION, REVIEW_EVENTS_COLLECTION } from "../db/firestore.js";
-import { LOCAL_USER_ID } from "./addLearningItem.js";
 
 export const recordReviewResultInputShape = {
   learning_item_id: z.string().uuid().describe("復習したLearningItemのID"),
@@ -37,6 +36,7 @@ export interface ReviewEvent {
 
 export async function recordReviewResult(
   db: Firestore,
+  userId: string,
   input: RecordReviewResultInput,
   strategy: ReviewStrategy = new SimpleReviewStrategy(),
   reviewedAt: Date = new Date(),
@@ -47,7 +47,7 @@ export async function recordReviewResult(
   return db.runTransaction(async (tx) => {
     const itemSnap = await tx.get(itemRef);
     const item = itemSnap.data() as { mastery: number; user_id: string } | undefined;
-    if (!item || item.user_id !== LOCAL_USER_ID) {
+    if (!item || item.user_id !== userId) {
       throw new Error(`LearningItem not found: ${parsed.learning_item_id}`);
     }
 
@@ -55,7 +55,7 @@ export async function recordReviewResult(
     const event: ReviewEvent = {
       id: randomUUID(),
       learning_item_id: parsed.learning_item_id,
-      user_id: LOCAL_USER_ID,
+      user_id: userId,
       reviewed_at: reviewedAt.toISOString(),
       result: parsed.result,
       response_time_ms: parsed.response_time_ms ?? null,

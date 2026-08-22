@@ -10,15 +10,19 @@ AIエージェント連携型 語学学習プラットフォーム。ChatGPT・G
 
 ## 登録した学習項目を見る
 
-RESTサーバーを起動して `http://localhost:8081` を開くと、ChatGPTから登録した単語・フレーズ・文法を一覧できます。
+RESTサーバーを起動して `http://localhost:8081` を開くと、ChatGPTから登録した単語・フレーズ・文法を一覧できます。画面へのログインにはGoogleアカウントを使用します。
 
 ```sh
-STUDY_KARTE_API_KEY=your-api-key npm run start:rest
+GCP_PROJECT_ID=your-project-id \
+STUDY_KARTE_API_KEY=your-chatgpt-connector-key \
+npm run start:rest
 ```
 
-初回表示時に同じAPIキーを入力してください。キーは利用中のブラウザの `localStorage` に保存され、HTMLには埋め込まれません。言語・項目種別による絞り込みに対応しています。
+既存の `local` データは専用JSONへエクスポートし、Googleログイン後に画面からインポートします。JSON内の移行トークンをサーバー側のハッシュと照合するため、ファイルを持つ利用者だけが引き継げます。言語・項目種別による絞り込みに対応しています。
 
 ChatGPT上では「Study Karteに登録した単語を一覧で見せて」と依頼することでも確認できます。
+
+Web APIはFirebase IDトークンで利用者を識別します。既存の `x-api-key` はChatGPT連携を維持するための移行用サーバー間認証であり、利用者へ入力させません。認証IDはStudy Karteユーザーと分離して保存するため、将来は同じユーザーへLINE認証を追加できます。
 
 ## 現在のステータス
 
