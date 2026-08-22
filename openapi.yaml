@@ -11,6 +11,20 @@ security:
   - ApiKeyAuth: []
   - FirebaseAuth: []
 paths:
+  /exports/legacy:
+    get:
+      summary: Googleログイン中の旧データ所有者が移行用JSONをダウンロードする
+      responses:
+        "200":
+          description: 移行用JSONファイル
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LegacyImportBundle"
+        "403":
+          description: Googleログインが必要
+        "409":
+          description: 別のユーザーが取得済み
   /imports/legacy:
     post:
       operationId: importLegacyData

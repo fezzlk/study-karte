@@ -33,7 +33,7 @@ steps:
       - --max-instances=10
       - --allow-unauthenticated
       - --service-account=${_SERVICE_NAME}-run@$PROJECT_ID.iam.gserviceaccount.com
-      - --update-secrets=STUDY_KARTE_API_KEY=study-karte-api-key:latest
+      - --update-secrets=STUDY_KARTE_API_KEY=study-karte-api-key:latest,LEGACY_EXPORT_JSON=study-karte-legacy-export:latest
       - --update-env-vars=GCP_PROJECT_ID=$PROJECT_ID
 
 images:

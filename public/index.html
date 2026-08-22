@@ -58,7 +58,9 @@
         <details class="import-panel panel">
           <summary>以前のデータをインポート</summary>
           <div class="import-content">
-            <p>Study Karteから書き出したJSONバックアップを選択してください。</p>
+            <p>まず旧データを端末へ保存し、そのJSONバックアップを選択してください。</p>
+            <button id="download-legacy-button" class="secondary-button" type="button">旧データをダウンロード</button>
+            <p id="download-legacy-status" class="import-summary" role="status" aria-live="polite"></p>
             <input id="import-file" type="file" accept="application/json,.json" />
             <p id="import-summary" class="import-summary" role="status" aria-live="polite"></p>
             <button id="import-button" class="primary-button" type="button" disabled>インポートする</button>

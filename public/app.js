@@ -22,6 +22,8 @@ const languageFilter = document.querySelector("#language-filter");
 const typeFilter = document.querySelector("#type-filter");
 const refreshButton = document.querySelector("#refresh-button");
 const importFile = document.querySelector("#import-file");
+const downloadLegacyButton = document.querySelector("#download-legacy-button");
+const downloadLegacyStatus = document.querySelector("#download-legacy-status");
 const importSummary = document.querySelector("#import-summary");
 const importButton = document.querySelector("#import-button");
 const resultCount = document.querySelector("#result-count");
@@ -195,6 +197,33 @@ signOutButton.addEventListener("click", () => signOut(auth));
 languageFilter.addEventListener("change", () => loadItems());
 typeFilter.addEventListener("change", () => loadItems());
 refreshButton.addEventListener("click", () => loadItems());
+
+downloadLegacyButton.addEventListener("click", async () => {
+  downloadLegacyButton.disabled = true;
+  downloadLegacyStatus.textContent = "バックアップを準備しています…";
+  try {
+    const response = await apiFetch("/exports/legacy");
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "study-karte-backup.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    downloadLegacyStatus.textContent = "保存しました。続けて下のファイル選択から読み込んでください。";
+  } catch (error) {
+    console.error(error);
+    downloadLegacyStatus.textContent = "ダウンロードできませんでした。ログインアカウントを確認してください。";
+  } finally {
+    downloadLegacyButton.disabled = false;
+  }
+});
 
 importFile.addEventListener("change", async () => {
   selectedImportBundle = undefined;

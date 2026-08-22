@@ -7,6 +7,8 @@ import { recordReviewResult } from "../tools/recordReviewResult.js";
 import { z } from "zod";
 import { createRequireIdentity } from "../auth/requestAuth.js";
 import { importLegacyData, LegacyImportError } from "../imports/legacyImport.js";
+import { LEGACY_IMPORT_CONFIG_ID } from "../auth/users.js";
+import { SYSTEM_CONFIG_COLLECTION } from "../db/firestore.js";
 
 function queryParams(req: Request): Record<string, unknown> {
   const { language, type, limit } = req.query;
@@ -45,6 +47,46 @@ app.use(createRequireIdentity(db));
 
 app.get("/auth/session", (req: Request, res: Response) => {
   res.json({ user: req.identity?.user, method: req.identity?.method });
+});
+
+app.get("/exports/legacy", async (req: Request, res: Response) => {
+  if (req.identity?.method !== "firebase") {
+    res.status(403).json({ error: "interactive_login_required" });
+    return;
+  }
+
+  const serializedBundle = process.env.LEGACY_EXPORT_JSON;
+  if (!serializedBundle) {
+    res.status(404).json({ error: "legacy_export_not_available" });
+    return;
+  }
+
+  try {
+    JSON.parse(serializedBundle);
+    const configRef = db.collection(SYSTEM_CONFIG_COLLECTION).doc(LEGACY_IMPORT_CONFIG_ID);
+    await db.runTransaction(async (tx) => {
+      const snapshot = await tx.get(configRef);
+      const downloadUserId = snapshot.get("download_user_id");
+      const claimedUserId = snapshot.get("user_id");
+      if ((downloadUserId && downloadUserId !== req.identity!.userId) ||
+          (claimedUserId && claimedUserId !== req.identity!.userId)) {
+        throw new LegacyImportError("Legacy data belongs to another user", 409);
+      }
+      if (!downloadUserId) {
+        tx.set(configRef, {
+          download_user_id: req.identity!.userId,
+          downloaded_at: new Date().toISOString(),
+        }, { merge: true });
+      }
+    });
+
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="study-karte-backup.json"');
+    res.setHeader("Cache-Control", "no-store");
+    res.send(serializedBundle);
+  } catch (error) {
+    handleError(res, error);
+  }
 });
 
 app.post("/imports/legacy", async (req: Request, res: Response) => {
