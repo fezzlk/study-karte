@@ -9,11 +9,13 @@ import { createRequireIdentity } from "../auth/requestAuth.js";
 import { importLegacyData, LegacyImportError } from "../imports/legacyImport.js";
 import { LEGACY_IMPORT_CONFIG_ID } from "../auth/users.js";
 import { SYSTEM_CONFIG_COLLECTION } from "../db/firestore.js";
+import { createKarte, listKartes } from "../tools/kartes.js";
 
 function queryParams(req: Request): Record<string, unknown> {
-  const { language, type, limit } = req.query;
+  const { karte_id, language, type, limit } = req.query;
   const params: Record<string, unknown> = {};
   if (language !== undefined) params.language = language;
+  if (karte_id !== undefined) params.karte_id = karte_id;
   if (type !== undefined) params.type = type;
   if (limit !== undefined) params.limit = Number(limit);
   return params;
@@ -47,6 +49,14 @@ app.use(createRequireIdentity(db));
 
 app.get("/auth/session", (req: Request, res: Response) => {
   res.json({ user: req.identity?.user, method: req.identity?.method });
+});
+
+app.get("/kartes", async (req: Request, res: Response) => {
+  try { res.json(await listKartes(db, req.identity!.userId)); } catch (error) { handleError(res, error); }
+});
+
+app.post("/kartes", async (req: Request, res: Response) => {
+  try { res.status(201).json(await createKarte(db, req.identity!.userId, req.body)); } catch (error) { handleError(res, error); }
 });
 
 app.get("/exports/legacy", async (req: Request, res: Response) => {
@@ -111,7 +121,7 @@ function handleError(res: Response, error: unknown): void {
     return;
   }
   const message = error instanceof Error ? error.message : "internal_error";
-  const status = message.startsWith("LearningItem not found") ? 404 : 500;
+  const status = message.startsWith("LearningItem not found") || message.startsWith("Karte not found") ? 404 : 500;
   res.status(status).json({ error: message });
 }
 

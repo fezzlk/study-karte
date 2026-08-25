@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import type { Firestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { LEARNING_ITEMS_COLLECTION } from "../db/firestore.js";
+import { assertKarteOwnedByUser } from "./kartes.js";
 
 export const addLearningItemInputShape = {
+  karte_id: z.string().min(1).describe("登録先カルテID。list_kartesで選択して明示する"),
   language: z.string().min(1).describe("対象言語（例: zh-CN, en）"),
   type: z.enum(["vocabulary", "phrase", "grammar"]).describe("学習項目の種別"),
   surface: z.string().min(1).describe("表記"),
@@ -32,6 +34,7 @@ export async function addLearningItem(
   input: AddLearningItemInput,
 ): Promise<LearningItem> {
   const parsed = addLearningItemInput.parse(input);
+  await assertKarteOwnedByUser(db, userId, parsed.karte_id);
   const now = new Date().toISOString();
   const item: LearningItem = {
     id: randomUUID(),

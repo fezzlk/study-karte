@@ -38,6 +38,13 @@
       <section id="items-panel" class="items-panel" hidden>
         <div class="toolbar panel">
           <label>
+            <span>カルテ（学習目的）</span>
+            <select id="karte-filter">
+              <option value="">すべて</option>
+              <option value="uncategorized">未分類（既存データ）</option>
+            </select>
+          </label>
+          <label>
             <span>言語</span>
             <select id="language-filter">
               <option value="">すべて</option>
@@ -53,6 +60,10 @@
             </select>
           </label>
           <button id="refresh-button" class="secondary-button" type="button">更新</button>
+          <form id="karte-form" class="karte-form">
+            <label><span>新しいカルテ</span><input id="karte-name" maxlength="80" placeholder="例：中国語・仕事" required /></label>
+            <button class="primary-button" type="submit">作成</button>
+          </form>
         </div>
 
         <details class="import-panel panel">

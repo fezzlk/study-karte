@@ -7,6 +7,7 @@ import {
   SYSTEM_CONFIG_COLLECTION,
 } from "../db/firestore.js";
 import { LEGACY_IMPORT_CONFIG_ID, LEGACY_USER_ID } from "../auth/users.js";
+import { UNCATEGORIZED_KARTE_ID } from "../tools/kartes.js";
 
 const nullableString = z.string().nullable().optional();
 const learningItemSchema = z.object({
@@ -103,7 +104,7 @@ export async function importLegacyData(
   const entries: Array<{ ref: DocumentReference; data: Record<string, unknown> }> = [
     ...bundle.learning_items.map((item) => ({
       ref: db.collection(LEARNING_ITEMS_COLLECTION).doc(item.id),
-      data: { ...item, user_id: userId },
+      data: { ...item, user_id: userId, karte_id: UNCATEGORIZED_KARTE_ID },
     })),
     ...bundle.review_events.map((event) => ({
       ref: db.collection(REVIEW_EVENTS_COLLECTION).doc(event.id),

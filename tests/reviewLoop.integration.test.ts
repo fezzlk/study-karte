@@ -4,6 +4,7 @@ import {
   AUTH_IDENTITIES_COLLECTION,
   getDb,
   LEARNING_ITEMS_COLLECTION,
+  KARTES_COLLECTION,
   REVIEW_EVENTS_COLLECTION,
   SYSTEM_CONFIG_COLLECTION,
   USERS_COLLECTION,
@@ -14,6 +15,7 @@ import { recordReviewResult } from "../src/tools/recordReviewResult.js";
 import { findOrCreateUserForIdentity, LEGACY_USER_ID, linkIdentityToUser } from "../src/auth/users.js";
 import { searchLearningItems } from "../src/tools/searchLearningItems.js";
 import { importLegacyData, LegacyImportError } from "../src/imports/legacyImport.js";
+import { createKarte } from "../src/tools/kartes.js";
 
 const db = getDb();
 const TEST_USER_ID = "test-user";
@@ -26,6 +28,7 @@ async function clearCollection(name: string): Promise<void> {
 describe("review loop (Firestore emulator)", () => {
   beforeEach(async () => {
     await clearCollection(LEARNING_ITEMS_COLLECTION);
+    await clearCollection(KARTES_COLLECTION);
     await clearCollection(REVIEW_EVENTS_COLLECTION);
     await clearCollection(AUTH_IDENTITIES_COLLECTION);
     await clearCollection(USERS_COLLECTION);
@@ -34,6 +37,7 @@ describe("review loop (Firestore emulator)", () => {
 
   afterAll(async () => {
     await clearCollection(LEARNING_ITEMS_COLLECTION);
+    await clearCollection(KARTES_COLLECTION);
     await clearCollection(REVIEW_EVENTS_COLLECTION);
     await clearCollection(AUTH_IDENTITIES_COLLECTION);
     await clearCollection(USERS_COLLECTION);
@@ -42,12 +46,14 @@ describe("review loop (Firestore emulator)", () => {
 
   it("returns new and overdue items but excludes future reviews", async () => {
     const due = await addLearningItem(db, TEST_USER_ID, {
+      karte_id: "uncategorized",
       language: "zh-CN",
       type: "vocabulary",
       surface: "你好",
       meaning: "こんにちは",
     });
     const future = await addLearningItem(db, TEST_USER_ID, {
+      karte_id: "uncategorized",
       language: "zh-CN",
       type: "vocabulary",
       surface: "再见",
@@ -70,6 +76,7 @@ describe("review loop (Firestore emulator)", () => {
 
   it("records a review and atomically updates the schedule", async () => {
     const item = await addLearningItem(db, TEST_USER_ID, {
+      karte_id: "uncategorized",
       language: "en",
       type: "phrase",
       surface: "piece of cake",
@@ -98,6 +105,7 @@ describe("review loop (Firestore emulator)", () => {
 
   it("imports legacy data only with the matching backup token", async () => {
     const legacyItem = await addLearningItem(db, LEGACY_USER_ID, {
+      karte_id: "uncategorized",
       language: "en",
       type: "vocabulary",
       surface: "encounter",
@@ -171,12 +179,14 @@ describe("review loop (Firestore emulator)", () => {
 
   it("keeps learning items isolated by Study Karte user", async () => {
     await addLearningItem(db, "user-a", {
+      karte_id: "uncategorized",
       language: "en",
       type: "vocabulary",
       surface: "private",
       meaning: "非公開の",
     });
     await addLearningItem(db, "user-b", {
+      karte_id: "uncategorized",
       language: "en",
       type: "vocabulary",
       surface: "separate",
@@ -185,5 +195,26 @@ describe("review loop (Firestore emulator)", () => {
 
     const items = await searchLearningItems(db, "user-a", { limit: 50 });
     expect(items.map((item) => item.surface)).toEqual(["private"]);
+  });
+
+  it("groups sessions and agents by an explicitly selected purpose Karte", async () => {
+    const work = await createKarte(db, TEST_USER_ID, { name: "中国語・仕事" });
+    const travel = await createKarte(db, TEST_USER_ID, { name: "中国語・旅行" });
+    await addLearningItem(db, TEST_USER_ID, {
+      karte_id: work.id, language: "zh-CN", type: "vocabulary", surface: "会议", meaning: "会議",
+    });
+    await addLearningItem(db, TEST_USER_ID, {
+      karte_id: travel.id, language: "zh-CN", type: "phrase", surface: "多少钱？", meaning: "いくらですか？",
+    });
+
+    const workItems = await searchLearningItems(db, TEST_USER_ID, { karte_id: work.id, limit: 50 });
+    expect(workItems.map((item) => item.surface)).toEqual(["会议"]);
+  });
+
+  it("rejects registration into another user's Karte", async () => {
+    const karte = await createKarte(db, "user-a", { name: "English・Work" });
+    await expect(addLearningItem(db, "user-b", {
+      karte_id: karte.id, language: "en", type: "vocabulary", surface: "scope", meaning: "範囲",
+    })).rejects.toThrow("Karte not found");
   });
 });

@@ -29,6 +29,9 @@ const userPhoto = document.querySelector("#user-photo");
 const userName = document.querySelector("#user-name");
 const signOutButton = document.querySelector("#sign-out-button");
 const itemsPanel = document.querySelector("#items-panel");
+const karteFilter = document.querySelector("#karte-filter");
+const karteForm = document.querySelector("#karte-form");
+const karteName = document.querySelector("#karte-name");
 const languageFilter = document.querySelector("#language-filter");
 const typeFilter = document.querySelector("#type-filter");
 const refreshButton = document.querySelector("#refresh-button");
@@ -158,6 +161,7 @@ async function loadItems({ discoverLanguages = false } = {}) {
   setStatus("読み込んでいます…", "loading");
 
   const params = new URLSearchParams({ limit: "200" });
+  if (karteFilter.value) params.set("karte_id", karteFilter.value);
   if (!discoverLanguages && languageFilter.value) params.set("language", languageFilter.value);
   if (typeFilter.value) params.set("type", typeFilter.value);
 
@@ -181,7 +185,17 @@ async function establishSession(user) {
   showItems(user);
   const response = await apiFetch("/auth/session");
   if (!response.ok) throw new Error(`Session failed: ${response.status}`);
+  await loadKartes();
   await loadItems({ discoverLanguages: true });
+}
+
+async function loadKartes(selected = karteFilter.value) {
+  const response = await apiFetch("/kartes");
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const kartes = await response.json();
+  karteFilter.replaceChildren(new Option("すべて", ""), new Option("未分類（既存データ）", "uncategorized"));
+  for (const karte of kartes) karteFilter.add(new Option(karte.name, karte.id));
+  karteFilter.value = selected;
 }
 
 async function initializeAuthentication() {
@@ -232,8 +246,23 @@ googleSignInButton.addEventListener("click", async () => {
 
 signOutButton.addEventListener("click", () => signOut(auth));
 languageFilter.addEventListener("change", () => loadItems());
+karteFilter.addEventListener("change", () => loadItems());
 typeFilter.addEventListener("change", () => loadItems());
 refreshButton.addEventListener("click", () => loadItems());
+
+karteForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const name = karteName.value.trim();
+  if (!name) return;
+  const response = await apiFetch("/kartes", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }),
+  });
+  const result = await response.json();
+  if (!response.ok) { setStatus("カルテを作成できませんでした。", "error"); return; }
+  karteName.value = "";
+  await loadKartes(result.id);
+  await loadItems({ discoverLanguages: true });
+});
 
 downloadLegacyButton.addEventListener("click", async () => {
   downloadLegacyButton.disabled = true;

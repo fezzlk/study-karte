@@ -11,6 +11,30 @@ security:
   - ApiKeyAuth: []
   - FirebaseAuth: []
 paths:
+  /kartes:
+    get:
+      summary: 自分の目的別カルテを一覧取得する
+      responses:
+        "200":
+          description: カルテ一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Karte" }
+    post:
+      summary: 目的別カルテを作成する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateKarteInput" }
+      responses:
+        "201":
+          description: 作成したカルテ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Karte" }
   /exports/legacy:
     get:
       summary: Googleログイン中の旧データ所有者が移行用JSONをダウンロードする
@@ -148,8 +172,11 @@ components:
   schemas:
     AddLearningItemInput:
       type: object
-      required: [language, type, surface, meaning]
+      required: [karte_id, language, type, surface, meaning]
       properties:
+        karte_id:
+          type: string
+          description: list_kartes等でユーザーが明示的に選択した登録先カルテID
         language:
           type: string
           description: "対象言語（例: zh-CN, en）"
@@ -175,6 +202,8 @@ components:
           type: string
         user_id:
           type: string
+        karte_id:
+          type: string
         language:
           type: string
         type:
@@ -197,6 +226,21 @@ components:
           type: string
         updated_at:
           type: string
+    CreateKarteInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 80 }
+        description: { type: string, maxLength: 500 }
+    Karte:
+      type: object
+      properties:
+        id: { type: string }
+        user_id: { type: string }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        created_at: { type: string }
+        updated_at: { type: string }
     RecordReviewResultInput:
       type: object
       required: [learning_item_id, result]

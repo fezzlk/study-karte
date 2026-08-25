@@ -18,6 +18,7 @@ export function getDb(): Firestore {
 }
 
 export const LEARNING_ITEMS_COLLECTION = "learning_items";
+export const KARTES_COLLECTION = "kartes";
 export const REVIEW_EVENTS_COLLECTION = "review_events";
 export const USERS_COLLECTION = "users";
 export const AUTH_IDENTITIES_COLLECTION = "auth_identities";
