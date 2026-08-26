@@ -1,4 +1,5 @@
 import express, { type NextFunction, type Request, type Response } from "express";
+import { resolve } from "node:path";
 import { getDb } from "../db/firestore.js";
 import { addLearningItem } from "../tools/addLearningItem.js";
 import { searchLearningItems } from "../tools/searchLearningItems.js";
@@ -45,6 +46,10 @@ app.get("/auth/config", (_req: Request, res: Response) => {
     return;
   }
   res.json({ apiKey, appId, projectId, authDomain: `${projectId}.firebaseapp.com` });
+});
+
+app.get("/openapi.yaml", (_req: Request, res: Response) => {
+  res.type("application/yaml").sendFile(resolve("openapi.yaml"));
 });
 
 app.get("/oauth/authorize", authorizeRequest);

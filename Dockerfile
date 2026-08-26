@@ -16,6 +16,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 COPY --from=builder /app/dist ./dist
 COPY public ./public
+COPY openapi.yaml ./openapi.yaml
 
 RUN useradd --uid 1001 --create-home appuser
 USER appuser

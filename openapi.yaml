@@ -3,16 +3,17 @@ info:
   title: study-karte API
   description: >-
     AIエージェント連携型 語学学習プラットフォーム study-karte のREST API。
-    学習項目（LearningItem）の登録・検索・復習期限の取得・復習結果の記録を行う。
+    目的別カルテと学習項目の登録・検索・復習を行う。登録先カルテが不明な場合は
+    推測で書き込まず、先にカルテ一覧を取得して利用者へ選択を求める。
   version: "0.1.0"
 servers:
   - url: https://study-karte-oqn2yn4era-an.a.run.app
 security:
-  - ApiKeyAuth: []
-  - FirebaseAuth: []
+  - OAuth: [karte]
 paths:
   /kartes:
     get:
+      operationId: listKartes
       summary: 自分の目的別カルテを一覧取得する
       responses:
         "200":
@@ -23,6 +24,7 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/Karte" }
     post:
+      operationId: createKarte
       summary: 目的別カルテを作成する
       requestBody:
         required: true
@@ -35,43 +37,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Karte" }
-  /exports/legacy:
-    get:
-      summary: Googleログイン中の旧データ所有者が移行用JSONをダウンロードする
-      responses:
-        "200":
-          description: 移行用JSONファイル
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LegacyImportBundle"
-        "403":
-          description: Googleログインが必要
-        "409":
-          description: 別のユーザーが取得済み
-  /imports/legacy:
-    post:
-      operationId: importLegacyData
-      summary: Googleログイン中のユーザーへ旧データをインポートする
-      security:
-        - FirebaseAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/LegacyImportBundle"
-      responses:
-        "200":
-          description: インポート結果
-        "400":
-          description: ファイル形式または移行トークンが不正
-        "409":
-          description: 別のユーザーがすでに引き取り済み
   /learning-items:
     post:
       operationId: addLearningItem
-      summary: 新しく覚えたい単語・表現・文法を登録する
+      summary: 利用者が明示的に選択したカルテへ学習項目を登録する
       requestBody:
         required: true
         content:
@@ -89,8 +58,13 @@ paths:
           description: 入力エラー
     get:
       operationId: searchLearningItems
-      summary: 登録済みのLearningItemを言語・種別で絞り込んで一覧取得する
+      summary: 登録済みのLearningItemをカルテ・言語・種別で絞り込んで一覧取得する
       parameters:
+        - name: karte_id
+          in: query
+          schema:
+            type: string
+          description: listKartesで取得し、利用者が選択したカルテID
         - name: language
           in: query
           schema:
@@ -120,6 +94,11 @@ paths:
       operationId: getDueReviews
       summary: 現在復習すべきLearningItemを期限順に取得する
       parameters:
+        - name: karte_id
+          in: query
+          schema:
+            type: string
+          description: 復習対象のカルテID
         - name: language
           in: query
           schema:
@@ -159,16 +138,15 @@ paths:
           description: 対象のLearningItemが見つからない
 components:
   securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: x-api-key
-      description: ChatGPT連携の移行期間中だけ使用するサーバー間認証
-    FirebaseAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: Firebase ID token
-      description: Webアプリ利用者の認証
+    OAuth:
+      type: oauth2
+      description: ChatGPT利用者ごとのGoogleログイン
+      flows:
+        authorizationCode:
+          authorizationUrl: https://study-karte-oqn2yn4era-an.a.run.app/oauth/authorize
+          tokenUrl: https://study-karte-oqn2yn4era-an.a.run.app/oauth/token
+          scopes:
+            karte: 自分のカルテと学習項目の読み書き・復習結果記録
   schemas:
     AddLearningItemInput:
       type: object
