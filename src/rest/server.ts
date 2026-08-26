@@ -12,6 +12,7 @@ import { LEGACY_IMPORT_CONFIG_ID } from "../auth/users.js";
 import { SYSTEM_CONFIG_COLLECTION } from "../db/firestore.js";
 import { createKarte, listKartes } from "../tools/kartes.js";
 import { authorizeRequest, completeAuthorization, exchangeToken } from "../auth/oauth.js";
+import { deleteUserData, exportUserData } from "../tools/dataRights.js";
 
 function queryParams(req: Request): Record<string, unknown> {
   const { karte_id, language, type, limit } = req.query;
@@ -121,6 +122,34 @@ app.post("/imports/legacy", async (req: Request, res: Response) => {
   }
   try {
     res.json(await importLegacyData(db, req.identity.userId, req.body));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+app.get("/me/export", async (req: Request, res: Response) => {
+  if (req.identity?.method !== "firebase") {
+    res.status(403).json({ error: "interactive_login_required" });
+    return;
+  }
+  try {
+    const bundle = await exportUserData(db, req.identity.userId);
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="study-karte-my-data.json"');
+    res.setHeader("Cache-Control", "no-store");
+    res.send(JSON.stringify(bundle, null, 2));
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+app.delete("/me", async (req: Request, res: Response) => {
+  if (req.identity?.method !== "firebase") {
+    res.status(403).json({ error: "interactive_login_required" });
+    return;
+  }
+  try {
+    res.json(await deleteUserData(db, req.identity.userId));
   } catch (error) {
     handleError(res, error);
   }
