@@ -67,6 +67,18 @@
         </div>
 
         <details class="import-panel panel">
+          <summary>アカウントとデータの管理</summary>
+          <div class="account-panel">
+            <p>ご自身のデータをJSON形式でダウンロード、またはアカウントごと全データを削除できます。削除は取り消せません。</p>
+            <div class="account-actions">
+              <button id="export-data-button" class="secondary-button" type="button">データをエクスポート</button>
+              <button id="delete-account-button" class="secondary-button danger-button" type="button">アカウントと全データを削除</button>
+            </div>
+            <p id="account-status" class="account-status" role="status" aria-live="polite"></p>
+          </div>
+        </details>
+
+        <details class="import-panel panel">
           <summary>以前のデータをインポート</summary>
           <div class="import-content">
             <p>まず旧データを端末へ保存し、そのJSONバックアップを選択してください。</p>
@@ -86,6 +98,11 @@
         <div id="item-list" class="item-list"></div>
       </section>
     </main>
+
+    <footer class="app-footer">
+      <a href="/terms.html">利用規約</a>
+      <a href="/privacy.html">プライバシーポリシー</a>
+    </footer>
 
     <template id="item-template">
       <article class="item-card">

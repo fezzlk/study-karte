@@ -38,6 +38,9 @@ const refreshButton = document.querySelector("#refresh-button");
 const importFile = document.querySelector("#import-file");
 const downloadLegacyButton = document.querySelector("#download-legacy-button");
 const downloadLegacyStatus = document.querySelector("#download-legacy-status");
+const exportDataButton = document.querySelector("#export-data-button");
+const deleteAccountButton = document.querySelector("#delete-account-button");
+const accountStatus = document.querySelector("#account-status");
 const importSummary = document.querySelector("#import-summary");
 const importButton = document.querySelector("#import-button");
 const resultCount = document.querySelector("#result-count");
@@ -344,6 +347,55 @@ importButton.addEventListener("click", async () => {
     console.error(error);
     importSummary.textContent = "インポートできませんでした。ファイルとログインアカウントを確認してください。";
     importButton.disabled = false;
+  }
+});
+
+exportDataButton.addEventListener("click", async () => {
+  exportDataButton.disabled = true;
+  accountStatus.textContent = "エクスポートを準備しています…";
+  try {
+    const response = await apiFetch("/me/export");
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "study-karte-my-data.json";
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    accountStatus.textContent = "エクスポートしたファイルを保存しました。";
+  } catch (error) {
+    console.error(error);
+    accountStatus.textContent = "エクスポートできませんでした。ログインアカウントを確認してください。";
+  } finally {
+    exportDataButton.disabled = false;
+  }
+});
+
+deleteAccountButton.addEventListener("click", async () => {
+  const confirmed = window.confirm(
+    "アカウントと登録済みの全学習データを完全に削除します。この操作は取り消せません。続けますか？",
+  );
+  if (!confirmed) return;
+  deleteAccountButton.disabled = true;
+  accountStatus.textContent = "削除しています…";
+  try {
+    const response = await apiFetch("/me", { method: "DELETE" });
+    if (!response.ok) {
+      const result = await response.json();
+      throw new Error(result.error || `HTTP ${response.status}`);
+    }
+    accountStatus.textContent = "";
+    await signOut(auth);
+  } catch (error) {
+    console.error(error);
+    accountStatus.textContent = "削除できませんでした。もう一度お試しください。";
+    deleteAccountButton.disabled = false;
   }
 });
 

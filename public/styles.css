@@ -163,3 +163,21 @@ button:disabled { cursor: wait; opacity: 0.55; }
   .toolbar .secondary-button { grid-column: auto; }
   .item-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.legal-page { padding: 28px; display: grid; gap: 4px; }
+.legal-page h2 { margin: 22px 0 8px; font-size: 1.05rem; color: #17332c; }
+.legal-page h2:first-child { margin-top: 0; }
+.legal-page p, .legal-page li { color: #4f655e; font-size: 0.92rem; line-height: 1.75; }
+.legal-page ul { margin: 4px 0; padding-left: 20px; }
+.legal-page a { color: #276d59; }
+.legal-footer-link { margin: 18px 2px 48px; color: #657871; font-size: 0.85rem; }
+.legal-footer-link a { color: #276d59; }
+
+.app-footer { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 32px 2px 48px; color: #82918c; font-size: 0.78rem; }
+.app-footer a { color: #567068; }
+
+.account-panel { margin-top: 14px; padding: 0 18px 18px; display: grid; gap: 10px; }
+.account-panel .account-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-panel p { margin: 0; color: #64766f; font-size: 0.86rem; line-height: 1.6; }
+.account-status { min-height: 1.5em; font-size: 0.85rem; }
+.danger-button { border-color: #e3b3ac; color: #8d342d; background: #fff7f6; }
