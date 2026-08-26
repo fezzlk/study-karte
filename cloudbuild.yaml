@@ -33,8 +33,8 @@ steps:
       - --max-instances=10
       - --allow-unauthenticated
       - --service-account=${_SERVICE_NAME}-run@$PROJECT_ID.iam.gserviceaccount.com
-      - --update-secrets=STUDY_KARTE_API_KEY=study-karte-api-key:latest,LEGACY_EXPORT_JSON=study-karte-legacy-export:latest
-      - --update-env-vars=GCP_PROJECT_ID=$PROJECT_ID
+      - --update-secrets=STUDY_KARTE_API_KEY=study-karte-api-key:latest,LEGACY_EXPORT_JSON=study-karte-legacy-export:latest,STUDY_KARTE_OAUTH_CLIENT_SECRET=study-karte-oauth-client-secret:latest
+      - --update-env-vars=GCP_PROJECT_ID=$PROJECT_ID,STUDY_KARTE_OAUTH_CLIENT_ID=study-karte-chatgpt-actions
 
 images:
   - "${_REGION}-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/${_SERVICE_NAME}:$COMMIT_SHA"

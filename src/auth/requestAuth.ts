@@ -7,10 +7,11 @@ import {
   type AuthProvider,
   type StudyKarteUser,
 } from "./users.js";
+import { resolveOAuthAccessToken } from "./oauth.js";
 
 export interface RequestIdentity {
   userId: string;
-  method: "firebase" | "legacy_api_key";
+  method: "firebase" | "oauth" | "legacy_api_key";
   user?: StudyKarteUser;
 }
 
@@ -39,6 +40,12 @@ export function createRequireIdentity(db: Firestore) {
     try {
       const token = bearerToken(req);
       if (token) {
+        const oauthUserId = await resolveOAuthAccessToken(db, token);
+        if (oauthUserId) {
+          req.identity = { userId: oauthUserId, method: "oauth" };
+          next();
+          return;
+        }
         const decoded = await getAuth().verifyIdToken(token);
         const user = await findOrCreateUserForIdentity(db, {
           provider: authProvider(decoded.firebase?.sign_in_provider, decoded.auth_provider),

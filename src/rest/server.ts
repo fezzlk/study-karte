@@ -10,6 +10,7 @@ import { importLegacyData, LegacyImportError } from "../imports/legacyImport.js"
 import { LEGACY_IMPORT_CONFIG_ID } from "../auth/users.js";
 import { SYSTEM_CONFIG_COLLECTION } from "../db/firestore.js";
 import { createKarte, listKartes } from "../tools/kartes.js";
+import { authorizeRequest, completeAuthorization, exchangeToken } from "../auth/oauth.js";
 
 function queryParams(req: Request): Record<string, unknown> {
   const { karte_id, language, type, limit } = req.query;
@@ -24,6 +25,7 @@ function queryParams(req: Request): Record<string, unknown> {
 const db = getDb();
 const app = express();
 app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: false }));
 app.use(
   express.static("public", {
     extensions: ["html"],
@@ -43,6 +45,14 @@ app.get("/auth/config", (_req: Request, res: Response) => {
     return;
   }
   res.json({ apiKey, appId, projectId, authDomain: `${projectId}.firebaseapp.com` });
+});
+
+app.get("/oauth/authorize", authorizeRequest);
+app.post("/oauth/authorize/complete", async (req: Request, res: Response) => {
+  try { await completeAuthorization(db, req, res); } catch (error) { handleError(res, error); }
+});
+app.post("/oauth/token", async (req: Request, res: Response) => {
+  try { await exchangeToken(db, req, res); } catch (error) { handleError(res, error); }
 });
 
 app.use(createRequireIdentity(db));

@@ -22,4 +22,6 @@ export const KARTES_COLLECTION = "kartes";
 export const REVIEW_EVENTS_COLLECTION = "review_events";
 export const USERS_COLLECTION = "users";
 export const AUTH_IDENTITIES_COLLECTION = "auth_identities";
+export const OAUTH_CODES_COLLECTION = "oauth_codes";
+export const OAUTH_TOKENS_COLLECTION = "oauth_tokens";
 export const SYSTEM_CONFIG_COLLECTION = "system_config";

@@ -5,6 +5,8 @@ import {
   getDb,
   LEARNING_ITEMS_COLLECTION,
   KARTES_COLLECTION,
+  OAUTH_CODES_COLLECTION,
+  OAUTH_TOKENS_COLLECTION,
   REVIEW_EVENTS_COLLECTION,
   SYSTEM_CONFIG_COLLECTION,
   USERS_COLLECTION,
@@ -16,6 +18,7 @@ import { findOrCreateUserForIdentity, LEGACY_USER_ID, linkIdentityToUser } from 
 import { searchLearningItems } from "../src/tools/searchLearningItems.js";
 import { importLegacyData, LegacyImportError } from "../src/imports/legacyImport.js";
 import { createKarte } from "../src/tools/kartes.js";
+import { exchangeToken, resolveOAuthAccessToken } from "../src/auth/oauth.js";
 
 const db = getDb();
 const TEST_USER_ID = "test-user";
@@ -29,6 +32,8 @@ describe("review loop (Firestore emulator)", () => {
   beforeEach(async () => {
     await clearCollection(LEARNING_ITEMS_COLLECTION);
     await clearCollection(KARTES_COLLECTION);
+    await clearCollection(OAUTH_CODES_COLLECTION);
+    await clearCollection(OAUTH_TOKENS_COLLECTION);
     await clearCollection(REVIEW_EVENTS_COLLECTION);
     await clearCollection(AUTH_IDENTITIES_COLLECTION);
     await clearCollection(USERS_COLLECTION);
@@ -38,6 +43,8 @@ describe("review loop (Firestore emulator)", () => {
   afterAll(async () => {
     await clearCollection(LEARNING_ITEMS_COLLECTION);
     await clearCollection(KARTES_COLLECTION);
+    await clearCollection(OAUTH_CODES_COLLECTION);
+    await clearCollection(OAUTH_TOKENS_COLLECTION);
     await clearCollection(REVIEW_EVENTS_COLLECTION);
     await clearCollection(AUTH_IDENTITIES_COLLECTION);
     await clearCollection(USERS_COLLECTION);
@@ -216,5 +223,36 @@ describe("review loop (Firestore emulator)", () => {
     await expect(addLearningItem(db, "user-b", {
       karte_id: karte.id, language: "en", type: "vocabulary", surface: "scope", meaning: "範囲",
     })).rejects.toThrow("Karte not found");
+  });
+
+  it("exchanges an OAuth code only once and resolves the resulting user", async () => {
+    process.env.STUDY_KARTE_OAUTH_CLIENT_ID = "chatgpt-test-client";
+    process.env.STUDY_KARTE_OAUTH_CLIENT_SECRET = "test-client-secret";
+    const code = "sk_code_test-value";
+    const redirectUri = "https://chatgpt.com/aip/g-test/oauth/callback";
+    await db.collection(OAUTH_CODES_COLLECTION).doc(createHash("sha256").update(code).digest("hex")).set({
+      user_id: "oauth-user", client_id: "chatgpt-test-client", redirect_uri: redirectUri,
+      expires_at: new Date(Date.now() + 60_000).toISOString(), used_at: null,
+    });
+
+    const responses: Array<{ status?: number; body?: Record<string, unknown> }> = [];
+    function response(index: number) {
+      return {
+        status(code: number) { responses[index]!.status = code; return this; },
+        json(body: Record<string, unknown>) { responses[index]!.body = body; return this; },
+      };
+    }
+    const request = { body: {
+      grant_type: "authorization_code", client_id: "chatgpt-test-client",
+      client_secret: "test-client-secret", code, redirect_uri: redirectUri,
+    } };
+    responses.push({});
+    await exchangeToken(db, request as never, response(0) as never);
+    const accessToken = responses[0]!.body?.access_token as string;
+    expect(await resolveOAuthAccessToken(db, accessToken)).toBe("oauth-user");
+
+    responses.push({});
+    await exchangeToken(db, request as never, response(1) as never);
+    expect(responses[1]).toMatchObject({ status: 400, body: { error: "invalid_grant" } });
   });
 });

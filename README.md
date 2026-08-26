@@ -22,6 +22,11 @@ npm run start:rest
 
 ChatGPT上では「Study Karteに登録した単語を一覧で見せて」と依頼することでも確認できます。
 
+一般利用者向けのGPT Actions連携はOAuthを使用します。GPT Editorには認可URL
+`https://study-karte-oqn2yn4era-an.a.run.app/oauth/authorize`、トークンURL
+`https://study-karte-oqn2yn4era-an.a.run.app/oauth/token`、client ID
+`study-karte-chatgpt-actions`を設定します。client secretはSecret Managerで管理し、リポジトリや利用者へ配布しません。
+
 Web APIはFirebase IDトークンで利用者を識別します。既存の `x-api-key` はChatGPT連携を維持するための移行用サーバー間認証であり、利用者へ入力させません。認証IDはStudy Karteユーザーと分離して保存するため、将来は同じユーザーへLINE認証を追加できます。
 
 ## 現在のステータス
