@@ -1,7 +1,8 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { resolve } from "node:path";
 import { getDb } from "../db/firestore.js";
-import { addLearningItem } from "../tools/addLearningItem.js";
+import { addLearningItem, KarteSelectionRequiredError } from "../tools/addLearningItem.js";
+import { moveLearningItem } from "../tools/moveLearningItem.js";
 import { searchLearningItems } from "../tools/searchLearningItems.js";
 import { getDueReviews } from "../tools/getDueReviews.js";
 import { recordReviewResult } from "../tools/recordReviewResult.js";
@@ -10,7 +11,14 @@ import { createRequireIdentity } from "../auth/requestAuth.js";
 import { importLegacyData, LegacyImportError } from "../imports/legacyImport.js";
 import { LEGACY_IMPORT_CONFIG_ID } from "../auth/users.js";
 import { SYSTEM_CONFIG_COLLECTION } from "../db/firestore.js";
-import { createKarte, listKartes } from "../tools/kartes.js";
+import {
+  createKarte,
+  getDefaultKarteId,
+  listKartes,
+  mergeKartes,
+  setDefaultKarte,
+  updateKarte,
+} from "../tools/kartes.js";
 import { authorizeRequest, completeAuthorization, exchangeToken } from "../auth/oauth.js";
 
 function queryParams(req: Request): Record<string, unknown> {
@@ -67,11 +75,31 @@ app.get("/auth/session", (req: Request, res: Response) => {
 });
 
 app.get("/kartes", async (req: Request, res: Response) => {
-  try { res.json(await listKartes(db, req.identity!.userId)); } catch (error) { handleError(res, error); }
+  try {
+    res.json(await listKartes(db, req.identity!.userId, { include_archived: req.query.include_archived === "true" }));
+  } catch (error) { handleError(res, error); }
 });
 
 app.post("/kartes", async (req: Request, res: Response) => {
   try { res.status(201).json(await createKarte(db, req.identity!.userId, req.body)); } catch (error) { handleError(res, error); }
+});
+
+app.patch("/kartes/:karteId", async (req: Request, res: Response) => {
+  try {
+    res.json(await updateKarte(db, req.identity!.userId, { ...req.body, karte_id: req.params.karteId }));
+  } catch (error) { handleError(res, error); }
+});
+
+app.post("/kartes/merge", async (req: Request, res: Response) => {
+  try { res.json(await mergeKartes(db, req.identity!.userId, req.body)); } catch (error) { handleError(res, error); }
+});
+
+app.get("/kartes/default", async (req: Request, res: Response) => {
+  try { res.json({ karte_id: await getDefaultKarteId(db, req.identity!.userId) }); } catch (error) { handleError(res, error); }
+});
+
+app.put("/kartes/default", async (req: Request, res: Response) => {
+  try { res.json(await setDefaultKarte(db, req.identity!.userId, req.body)); } catch (error) { handleError(res, error); }
 });
 
 app.get("/exports/legacy", async (req: Request, res: Response) => {
@@ -135,6 +163,10 @@ function handleError(res: Response, error: unknown): void {
     res.status(error.status).json({ error: error.message });
     return;
   }
+  if (error instanceof KarteSelectionRequiredError) {
+    res.status(409).json({ error: "karte_selection_required", kartes: error.kartes });
+    return;
+  }
   const message = error instanceof Error ? error.message : "internal_error";
   const status = message.startsWith("LearningItem not found") || message.startsWith("Karte not found") ? 404 : 500;
   res.status(status).json({ error: message });
@@ -144,6 +176,18 @@ app.post("/learning-items", async (req: Request, res: Response) => {
   try {
     const item = await addLearningItem(db, req.identity!.userId, req.body);
     res.status(201).json(item);
+  } catch (error) {
+    handleError(res, error);
+  }
+});
+
+app.patch("/learning-items/:itemId", async (req: Request, res: Response) => {
+  try {
+    const item = await moveLearningItem(db, req.identity!.userId, {
+      ...req.body,
+      learning_item_id: req.params.itemId,
+    });
+    res.json(item);
   } catch (error) {
     handleError(res, error);
   }
