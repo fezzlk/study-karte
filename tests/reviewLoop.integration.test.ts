@@ -11,13 +11,14 @@ import {
   SYSTEM_CONFIG_COLLECTION,
   USERS_COLLECTION,
 } from "../src/db/firestore.js";
-import { addLearningItem } from "../src/tools/addLearningItem.js";
+import { addLearningItem, KarteSelectionRequiredError } from "../src/tools/addLearningItem.js";
+import { moveLearningItem } from "../src/tools/moveLearningItem.js";
 import { getDueReviews } from "../src/tools/getDueReviews.js";
 import { recordReviewResult } from "../src/tools/recordReviewResult.js";
 import { findOrCreateUserForIdentity, LEGACY_USER_ID, linkIdentityToUser } from "../src/auth/users.js";
 import { searchLearningItems } from "../src/tools/searchLearningItems.js";
 import { importLegacyData, LegacyImportError } from "../src/imports/legacyImport.js";
-import { createKarte } from "../src/tools/kartes.js";
+import { createKarte, getDefaultKarteId, listKartes, mergeKartes, setDefaultKarte, updateKarte } from "../src/tools/kartes.js";
 import { exchangeToken, resolveOAuthAccessToken } from "../src/auth/oauth.js";
 
 const db = getDb();
@@ -223,6 +224,65 @@ describe("review loop (Firestore emulator)", () => {
     await expect(addLearningItem(db, "user-b", {
       karte_id: karte.id, language: "en", type: "vocabulary", surface: "scope", meaning: "範囲",
     })).rejects.toThrow("Karte not found");
+  });
+
+  it("does not guess a Karte and asks for selection when karte_id is omitted with no default set", async () => {
+    await createKarte(db, TEST_USER_ID, { name: "中国語・仕事" });
+    await expect(
+      addLearningItem(db, TEST_USER_ID, { language: "en", type: "vocabulary", surface: "ambiguous", meaning: "曖昧な" }),
+    ).rejects.toThrow(KarteSelectionRequiredError);
+  });
+
+  it("uses the saved default Karte when karte_id is omitted", async () => {
+    const karte = await createKarte(db, TEST_USER_ID, { name: "中国語・仕事" });
+    await setDefaultKarte(db, TEST_USER_ID, { karte_id: karte.id });
+
+    const item = await addLearningItem(db, TEST_USER_ID, {
+      language: "zh-CN", type: "vocabulary", surface: "默认", meaning: "デフォルト",
+    });
+
+    expect(item.karte_id).toBe(karte.id);
+    expect(item.karte_name).toBe("中国語・仕事");
+    await expect(getDefaultKarteId(db, TEST_USER_ID)).resolves.toBe(karte.id);
+  });
+
+  it("renames and archives a Karte, hiding it from the default listing", async () => {
+    const karte = await createKarte(db, TEST_USER_ID, { name: "旧名称" });
+    const renamed = await updateKarte(db, TEST_USER_ID, { karte_id: karte.id, name: "新名称" });
+    expect(renamed.name).toBe("新名称");
+
+    await updateKarte(db, TEST_USER_ID, { karte_id: karte.id, archived: true });
+    const visible = await listKartes(db, TEST_USER_ID);
+    expect(visible.some((k) => k.id === karte.id)).toBe(false);
+
+    const withArchived = await listKartes(db, TEST_USER_ID, { include_archived: true });
+    expect(withArchived.find((k) => k.id === karte.id)?.archived_at).not.toBeNull();
+  });
+
+  it("merges one Karte into another, moving its items and deleting the source", async () => {
+    const from = await createKarte(db, TEST_USER_ID, { name: "統合元" });
+    const into = await createKarte(db, TEST_USER_ID, { name: "統合先" });
+    const item = await addLearningItem(db, TEST_USER_ID, {
+      karte_id: from.id, language: "en", type: "vocabulary", surface: "merge", meaning: "統合",
+    });
+
+    await mergeKartes(db, TEST_USER_ID, { from_karte_id: from.id, into_karte_id: into.id });
+
+    const movedItems = await searchLearningItems(db, TEST_USER_ID, { karte_id: into.id, limit: 50 });
+    expect(movedItems.map((i) => i.id)).toContain(item.id);
+    const remainingKartes = await listKartes(db, TEST_USER_ID, { include_archived: true });
+    expect(remainingKartes.some((k) => k.id === from.id)).toBe(false);
+  });
+
+  it("moves a learning item to a different Karte owned by the same user", async () => {
+    const source = await createKarte(db, TEST_USER_ID, { name: "移動元" });
+    const destination = await createKarte(db, TEST_USER_ID, { name: "移動先" });
+    const item = await addLearningItem(db, TEST_USER_ID, {
+      karte_id: source.id, language: "en", type: "vocabulary", surface: "move", meaning: "移動",
+    });
+
+    const moved = await moveLearningItem(db, TEST_USER_ID, { learning_item_id: item.id, karte_id: destination.id });
+    expect(moved.karte_id).toBe(destination.id);
   });
 
   it("exchanges an OAuth code only once and resolves the resulting user", async () => {

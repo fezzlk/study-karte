@@ -5,6 +5,9 @@ info:
     AIエージェント連携型 語学学習プラットフォーム study-karte のREST API。
     目的別カルテと学習項目の登録・検索・復習を行う。登録先カルテが不明な場合は
     推測で書き込まず、先にカルテ一覧を取得して利用者へ選択を求める。
+    karte_idを省略した場合はgetDefaultKarteで取得できる利用者の既定カルテへ登録するが、
+    既定が未設定でaddLearningItemが409 karte_selection_requiredを返した場合は、
+    レスポンスに含まれるカルテ一覧から利用者に選ばせること（推測で決めない）。
   version: "0.1.0"
 servers:
   - url: https://study-karte-oqn2yn4era-an.a.run.app
@@ -37,10 +40,81 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Karte" }
+  /kartes/{karteId}:
+    patch:
+      operationId: updateKarte
+      summary: カルテの名称変更・説明変更・アーカイブ/復元を行う
+      parameters:
+        - name: karteId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateKarteInput" }
+      responses:
+        "200":
+          description: 更新後のカルテ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Karte" }
+        "404":
+          description: カルテが見つからない
+  /kartes/merge:
+    post:
+      operationId: mergeKartes
+      summary: 統合元カルテの学習項目を統合先カルテへ移し、統合元カルテを削除する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MergeKartesInput" }
+      responses:
+        "200":
+          description: 統合先カルテ
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Karte" }
+        "404":
+          description: カルテが見つからない
+  /kartes/default:
+    get:
+      operationId: getDefaultKarte
+      summary: 利用者が保存した既定カルテIDを取得する（未設定ならnull）
+      responses:
+        "200":
+          description: 既定カルテID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  karte_id: { type: [string, "null"] }
+    put:
+      operationId: setDefaultKarte
+      summary: 以後karte_id省略時に使う既定カルテを保存する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetDefaultKarteInput" }
+      responses:
+        "200":
+          description: 保存した既定カルテID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  karte_id: { type: string }
+        "404":
+          description: カルテが見つからない
   /learning-items:
     post:
       operationId: addLearningItem
-      summary: 利用者が明示的に選択したカルテへ学習項目を登録する
+      summary: 選択済み（または既定）のカルテへ学習項目を登録する
       requestBody:
         required: true
         content:
@@ -49,13 +123,18 @@ paths:
               $ref: "#/components/schemas/AddLearningItemInput"
       responses:
         "201":
-          description: 登録済みのLearningItem
+          description: 登録済みのLearningItem（登録先カルテ名を含む）
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/LearningItem"
         "400":
           description: 入力エラー
+        "409":
+          description: 登録先カルテが未指定かつ既定未設定。推測せずkartesから選ばせること
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/KarteSelectionRequired" }
     get:
       operationId: searchLearningItems
       summary: 登録済みのLearningItemをカルテ・言語・種別で絞り込んで一覧取得する
@@ -89,6 +168,28 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LearningItem"
+  /learning-items/{itemId}:
+    patch:
+      operationId: moveLearningItem
+      summary: 登録済みのLearningItemを別のカルテへ移動する
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MoveLearningItemInput" }
+      responses:
+        "200":
+          description: 移動後のLearningItem
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LearningItem" }
+        "404":
+          description: LearningItemまたは移動先カルテが見つからない
   /due-reviews:
     get:
       operationId: getDueReviews
@@ -150,11 +251,13 @@ components:
   schemas:
     AddLearningItemInput:
       type: object
-      required: [karte_id, language, type, surface, meaning]
+      required: [language, type, surface, meaning]
       properties:
         karte_id:
           type: string
-          description: list_kartes等でユーザーが明示的に選択した登録先カルテID
+          description: >-
+            list_kartes等でユーザーが明示的に選択した登録先カルテID。省略時は既定カルテへ登録し、
+            既定未設定なら409 karte_selection_requiredを返す（推測登録はしない）
         language:
           type: string
           description: "対象言語（例: zh-CN, en）"
@@ -204,12 +307,44 @@ components:
           type: string
         updated_at:
           type: string
+        karte_name:
+          type: string
+          description: 登録結果として明示する登録先カルテ名
     CreateKarteInput:
       type: object
       required: [name]
       properties:
         name: { type: string, maxLength: 80 }
         description: { type: string, maxLength: 500 }
+    UpdateKarteInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 80 }
+        description: { type: [string, "null"], maxLength: 500 }
+        archived: { type: boolean, description: "trueでアーカイブ、falseで復元" }
+    MergeKartesInput:
+      type: object
+      required: [from_karte_id, into_karte_id]
+      properties:
+        from_karte_id: { type: string, description: 統合元カルテID（統合後に削除される） }
+        into_karte_id: { type: string, description: 統合先カルテID }
+    SetDefaultKarteInput:
+      type: object
+      required: [karte_id]
+      properties:
+        karte_id: { type: string, description: 既定として保存するカルテID（uncategorized指定可） }
+    MoveLearningItemInput:
+      type: object
+      required: [karte_id]
+      properties:
+        karte_id: { type: string, description: 移動先カルテID }
+    KarteSelectionRequired:
+      type: object
+      properties:
+        error: { type: string, const: karte_selection_required }
+        kartes:
+          type: array
+          items: { $ref: "#/components/schemas/Karte" }
     Karte:
       type: object
       properties:
@@ -217,6 +352,7 @@ components:
         user_id: { type: string }
         name: { type: string }
         description: { type: [string, "null"] }
+        archived_at: { type: [string, "null"] }
         created_at: { type: string }
         updated_at: { type: string }
     RecordReviewResultInput:
